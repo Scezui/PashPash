@@ -16,38 +16,38 @@ import string
 import sqlite3
 from kivy.graphics import Color, RoundedRectangle, StencilPush, StencilUse, StencilUnUse, StencilPop
 from kivy.uix.popup import Popup
-from fpdf import FPDF
+# from fpdf import FPDF
 from kivy.app import App
 import os
 import traceback
 from kivy.utils import platform
-import traceback
 import logging
-
-# Configure logging
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-# Set up logging to a file
-logging.basicConfig(filename='pashpash_app.log', level=logging.DEBUG)
-
-conn = sqlite3.connect('passwords.db')
-cursor = conn.cursor()
+from kivymd.uix.button import MDRaisedButton
 
 
-# Create table if not exists
-cursor.execute('''CREATE TABLE IF NOT EXISTS passwords
-                (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email_add TEXT,
-                username TEXT,
-                website TEXT,
-                year TEXT,
-                password TEXT)''')
-conn.commit()
+def get_database_path():
+    if platform == 'android':
+        from android.storage import app_storage_path
+        return os.path.join(app_storage_path(), 'passwords.db')
+    else:
+        return 'passwords.db'
 
-# Close the cursor and connection
-cursor.close()
-conn.close()
-
-
+def setup_database_connection():
+    db_path = get_database_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Create table if not exists
+    cursor.execute('''CREATE TABLE IF NOT EXISTS passwords
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email_add TEXT,
+                    username TEXT,
+                    website TEXT,
+                    year TEXT,
+                    password TEXT)''')
+    conn.commit()
+    
+    return conn, cursor
 
 class Card(BoxLayout):
     def __init__(self, **kwargs):
@@ -61,8 +61,8 @@ class Card(BoxLayout):
             # Shadow
             Color(0, 0, 0, 0.2)  # Semi-transparent black for shadow
             self.shadow = RoundedRectangle(size=(self.width + dp(10), self.height + dp(10)),
-                                           pos=(self.x - dp(5), self.y - dp(5)),
-                                           radius=[dp(10)])
+                                        pos=(self.x - dp(5), self.y - dp(5)),
+                                        radius=[dp(10)])
             # Card
             Color(1, 1, 1, 1)  # Original card color
             self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(10)])
@@ -207,19 +207,16 @@ class PasswordGeneratorWidget(Screen):
         password = self.generated_password_label.text
 
         # Save to SQLite database
-        conn = sqlite3.connect('passwords.db')
-        cursor = conn.cursor()
+        conn, cursor = setup_database_connection()
 
         # Insert data into table
         cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
-                       (email_add, username, website, year, password))
+                    (email_add, username, website, year, password))
         conn.commit()
 
         # Close cursor and connection
         cursor.close()
         conn.close()
-
-from kivymd.uix.button import MDRaisedButton
 
 class PasswordManagerWidget(Screen):
     def __init__(self, **kwargs):
@@ -258,7 +255,12 @@ class PasswordManagerWidget(Screen):
     # def export_to_pdf(self, *args):
     #     try:
     #         # Connect to your database
-    #         conn = sqlite3.connect('passwords.db')
+    #         if platform == 'android':
+    #             from android.storage import app_storage_path
+    #             db_path = os.path.join(app_storage_path(), 'passwords.db')
+    #         else:
+    #             db_path = 'passwords.db'    
+    #         conn = sqlite3.connect(db_path)
     #         cursor = conn.cursor()
             
     #         # Fetch data from the database
@@ -323,8 +325,7 @@ class PasswordManagerWidget(Screen):
         self.fetch_passwords()
 
     def fetch_passwords(self):
-        conn = sqlite3.connect('passwords.db')
-        cursor = conn.cursor()
+        conn, cursor = setup_database_connection()
         cursor.execute('SELECT * FROM passwords')
         rows = cursor.fetchall()
         conn.close()
@@ -342,9 +343,7 @@ class PasswordManagerWidget(Screen):
         checked_rows = self.table.get_row_checks()
         if not checked_rows:
             return
-
-        conn = sqlite3.connect('passwords.db')
-        cursor = conn.cursor()
+        conn, cursor = setup_database_connection()
 
         for row in checked_rows:
             email_add, username, year, website, password = row
@@ -360,11 +359,6 @@ class PasswordManagerWidget(Screen):
 
 class PashPashApp(MDApp):
     def build(self):
-            # Enable detailed logging
-        if platform == 'android':
-            import android_logging
-            android_logging.initialize_logging()
-
         self.icon = 'assets/icon.jpg'
         self.screen_manager = ScreenManager()
 
@@ -386,7 +380,7 @@ class PashPashApp(MDApp):
 
         # Password Generator Toggle Button
         self.password_generator_toggle = ToggleButton(text='Password Generator', group='menu', state='down',
-                                                     font_size=sp(16))
+                                                    font_size=sp(16))
         self.password_generator_toggle.bind(on_press=self.toggle_menu)
         self.menu_layout.add_widget(self.password_generator_toggle)
 
@@ -415,6 +409,6 @@ if __name__ == '__main__':
     try:
         PashPashApp().run()
     except Exception as e:
-        with open('/sdcard/pashpash_error.log', 'w') as f:
+        with open('/storage/emulated/0/pashpash_error.log', 'w') as f:
             f.write(str(e))
             f.write(traceback.format_exc())
