@@ -16,14 +16,12 @@ import string
 import sqlite3
 from kivy.graphics import Color, RoundedRectangle, StencilPush, StencilUse, StencilUnUse, StencilPop
 from kivy.uix.popup import Popup
-# from fpdf import FPDF
+import csv
 from kivy.app import App
 import os
 import traceback
 from kivy.utils import platform
-import logging
 from kivymd.uix.button import MDRaisedButton
-
 
 def get_database_path():
     if platform == 'android':
@@ -237,88 +235,85 @@ class PasswordManagerWidget(Screen):
         )
         self.add_widget(self.table)
 
-        # self.export_pdf = MDRaisedButton(
-        #     text="Export to PDF",
-        #     pos_hint={'center_x': 0.3, 'y': 0.05},
-        #     on_release=self.export_to_pdf
-        # )
-        # self.add_widget(self.export_pdf)
+        # Create a BoxLayout for buttons
+        self.button_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, None),
+            height=dp(56),  # Standard height for buttons
+            spacing=dp(10),  # Space between buttons
+            padding=[dp(10), dp(10), dp(10), dp(10)]  # Padding around buttons
+        )
 
+        # Create Export to CSV button
+        self.export_csv = MDRaisedButton(
+            text="Export to CSV",
+            size_hint=(1, None),
+            height=dp(56)
+        )
+        self.export_csv.bind(on_release=self.export_to_csv)
+        self.button_layout.add_widget(self.export_csv)
+
+        # Create Delete Selected button
         self.delete_button = MDRaisedButton(
             text="Delete Selected",
-            pos_hint={'center_x': 0.6, 'y': 0.05},
-            on_release=self.delete_selected
+            size_hint=(1, None),
+            height=dp(56)
         )
-        self.add_widget(self.delete_button)
+        self.delete_button.bind(on_release=self.delete_selected)
+        self.button_layout.add_widget(self.delete_button)
 
+        # Add button layout to the screen
+        self.add_widget(self.button_layout)
 
-    # def export_to_pdf(self, *args):
-    #     try:
-    #         # Connect to your database
-    #         if platform == 'android':
-    #             from android.storage import app_storage_path
-    #             db_path = os.path.join(app_storage_path(), 'passwords.db')
-    #         else:
-    #             db_path = 'passwords.db'    
-    #         conn = sqlite3.connect(db_path)
-    #         cursor = conn.cursor()
-            
-    #         # Fetch data from the database
-    #         cursor.execute("SELECT * FROM passwords")
-    #         all_data = cursor.fetchall()
-    #         conn.close()
-            
-    #         data = [row[1:] for row in all_data]  # This slices each tuple to exclude the first element (ID)
-    #         column_headers = ['Email Address', 'Username', 'Website', 'Year', 'Password']
-    #         data.insert(0, column_headers)
-            
-    #         # Create instance of FPDF class
-    #         pdf = FPDF()
-    #         pdf.add_page()
-    #         pdf.set_font("Arial", size=12)
+        # Adjust the position of the button layout
+        self.button_layout.pos_hint = {'center_x': 0.5, 'y': 0.02}
 
-    #         # Add header
-    #         pdf.set_font('Arial', 'B', 12)
-    #         pdf.cell(0, 10, 'Password Export', 0, 1, 'C')
-    #         pdf.ln(10)
+    def export_to_csv(self, *args):
+        try:
+            conn, cursor = setup_database_connection()
             
-    #         # Calculate column widths based on the length of data
-    #         col_widths = [pdf.get_string_width(header) + 4 for header in column_headers]
-    #         for row in data[1:]:
-    #             for i, cell in enumerate(row):
-    #                 col_widths[i] = max(col_widths[i], pdf.get_string_width(cell) + 4)
+            # Fetch data from the database
+            cursor.execute("SELECT * FROM passwords")
+            all_data = cursor.fetchall()
+            cursor.close()
+            conn.close()
             
-    #         # Add table headers
-    #         pdf.set_fill_color(200, 220, 255)
-    #         for header, width in zip(column_headers, col_widths):
-    #             pdf.cell(width, 10, header, 1, 0, 'C', fill=True)
-    #         pdf.ln()
+            data = [row[1:] for row in all_data]  # This slices each tuple to exclude the first element (ID)
+            column_headers = ['Email Address', 'Username', 'Website', 'Year', 'Password']
             
-    #         # Add table data
-    #         pdf.set_font("Arial", size=12)
-    #         for row in data[1:]:
-    #             for i, cell in enumerate(row):
-    #                 pdf.cell(col_widths[i], 10, cell, 1)
-    #             pdf.ln()
+            # Determine the export file path
+            if platform == 'android':
+                from android.storage import primary_external_storage_path
+                export_path = os.path.join(primary_external_storage_path(), 'Download', 'passwords_export.csv')
+            else:
+                export_path = 'passwords_export.csv'
             
-    #         pdf_file_name = os.path.join(App.get_running_app().user_data_dir, 'passwords_export.pdf')
-    #         pdf.output(pdf_file_name)
+            # Write data to CSV file
+            with open(export_path, 'w', newline='') as csvfile:
+                csv_writer = csv.writer(csvfile)
+                
+                # Write column headers
+                csv_writer.writerow(column_headers)
+                
+                # Write data
+                csv_writer.writerows(data)
             
-    #         # Show success popup
-    #         popup = Popup(title='Success',
-    #                     content=Label(text='Data exported to PDF successfully!'),
-    #                     size_hint=(None, None), size=(400, 200))
-    #         popup.open()
+                popup = Popup(title='Success',
+                            content=Label(text=f'Data exported to {export_path} successfully!',
+                                            text_size=(dp(250), None),  # Wrap text if it's too long
+                                            size_hint_y=None,
+                                            height=dp(100)),  # Adjust height as needed
+                            size_hint=(None, None),
+                            size=(dp(300), dp(200)))  # Fixed size in density-independent pixels
+                popup.open()
         
-    #     except Exception as e:
-    #         error_msg = f"Error exporting data to PDF: {str(e)}\n\n{traceback.format_exc()}"
-    #         print(error_msg)  # This will appear in your Android logcat
-    #         popup = Popup(title='Error',
-    #                     content=Label(text=error_msg),
-    #                     size_hint=(None, None), size=(400, 300))
-    #         popup.open()
-
-            
+        except Exception as e:
+            error_msg = f"Error exporting data: {str(e)}\n\n{traceback.format_exc()}"
+            print(error_msg)  # This will appear in your Android logcat
+            popup = Popup(title='Error',
+                        content=Label(text=error_msg),
+                        size_hint=(None, None), size=(400, 300))
+            popup.open()
 
     def on_enter(self):
         # This method is called every time the screen is entered
@@ -359,6 +354,7 @@ class PasswordManagerWidget(Screen):
 
 class PashPashApp(MDApp):
     def build(self):
+        setup_database_connection()
         self.icon = 'assets/icon.jpg'
         self.screen_manager = ScreenManager()
 
