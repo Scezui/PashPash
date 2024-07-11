@@ -384,6 +384,7 @@ class PashPashApp(MDApp):
     def build(self):
         self.icon = 'assets/icon.jpg'
         self.screen_manager = ScreenManager()
+        self.initialize_app()
 
         if platform == 'android':
             from android.permissions import check_permission, Permission
@@ -391,11 +392,10 @@ class PashPashApp(MDApp):
             if not check_permission(Permission.WRITE_EXTERNAL_STORAGE):
                 self.check_permissions()
             else:
-                self.initialize_app()
+                # self.initialize_app()
                 return self.root_layout
-
-        else:
-            self.initialize_app()
+        # else:
+        #     self.initialize_app()
         return self.root_layout
 
 
@@ -445,9 +445,7 @@ class PashPashApp(MDApp):
     @mainthread
     def permission_callback(self, permissions, results):
         if all(results):
-            self.initialize_app()
-            self.root.clear_widgets()  # Clear any placeholder widgets
-            self.root.add_widget(self.root_layout)
+            pass
         else:
             popup = Popup(
                 title='Permission Denied',
