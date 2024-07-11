@@ -282,53 +282,65 @@ class PasswordManagerWidget(Screen):
     def export_to_csv(self, *args):
         try:
             conn, cursor = setup_database_connection()
-            
-            # Fetch data from the database
+
             cursor.execute("SELECT * FROM passwords")
             all_data = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            
+
+            # Process data
             data = [row[1:] for row in all_data]  # This slices each tuple to exclude the first element (ID)
             column_headers = ['Email Address', 'Username', 'Website', 'Year', 'Password']
 
             # Export Path
             if platform == 'android':
                 from androidstorage4kivy import SharedStorage
-                shared_storage = SharedStorage().load()
-                export_path = shared_storage.get_path('passwords_export.csv', 'documents')
+                shared_storage = SharedStorage()
+                
+                # Get the cache directory
+                cache_dir = shared_storage.get_cache_dir()
+                if not cache_dir:
+                    raise Exception("Could not get cache directory")
+                
+                # Create a temporary file in the cache directory
+                temp_file_path = os.path.join(cache_dir, 'passwords_export.csv')
+                
+                # Write to the temporary file
+                with open(temp_file_path, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(column_headers)
+                    csv_writer.writerows(data)
+                
+                # Copy the file to shared storage
+                uri = shared_storage.copy_to_shared(temp_file_path, collection='DIRECTORY_DOCUMENTS')
+                
+                if uri:
+                    # Convert URI to string for display
+                    export_path = uri.toString()
+                else:
+                    raise Exception("Failed to copy file to shared storage")
             else:
                 export_path = 'passwords_export.csv'
-            
-            # Write data to CSV file
-            with open(export_path, 'w', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                
-                # Write column headers
-                csv_writer.writerow(column_headers)
-                
-                # Write data
-                csv_writer.writerows(data)
-            
+                # Write data to CSV file
+                with open(export_path, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(column_headers)
+                    csv_writer.writerows(data)
+
+            # Show success popup
             popup = Popup(title='Success',
-                        content=Label(text=f'Data exported to {export_path} successfully!',
-                                        text_size=(dp(250), None),  # Wrap text if it's too long
-                                        size_hint_y=None,
-                                        height=dp(100)),  # Adjust height as needed
-                        size_hint=(None, None),
-                        size=(dp(300), dp(200)))  # Fixed size in density-independent pixels
+                        content=Label(text=f'Data exported successfully!\nFile location: {export_path}',
+                                        text_size=(dp(250), None),
+                                        size_hint_y=None, height=dp(100)),
+                        size_hint=(None, None), size=(dp(300), dp(200)))
             popup.open()
-        
+
         except Exception as e:
             error_msg = f"Error exporting data: {str(e)}\n\n{traceback.format_exc()}"
             print(error_msg)  # This will appear in your Android logcat
             popup = Popup(title='Error',
                         content=Label(text=error_msg,
-                                        text_size=(dp(250), None),  # Wrap text if it's too long
-                                        size_hint_y=None,
-                                        height=dp(100)),  # Adjust height as needed
-                        size_hint=(None, None),
-                        size=(dp(300), dp(200)))  # Fixed size in density-independent pixels
+                                        text_size=(dp(250), None),
+                                        size_hint_y=None, height=dp(100)),
+                        size_hint=(None, None), size=(dp(300), dp(200)))
             popup.open()
 
     def on_enter(self):
@@ -372,21 +384,20 @@ class PashPashApp(MDApp):
     def build(self):
         self.icon = 'assets/icon.jpg'
         self.screen_manager = ScreenManager()
-        
 
         if platform == 'android':
-            from android.permissions import request_permissions, check_permission, Permission
+            from android.permissions import check_permission, Permission
             # Check if permission is granted
-            if check_permission(Permission.WRITE_EXTERNAL_STORAGE):
+            if not check_permission(Permission.WRITE_EXTERNAL_STORAGE):
+                self.check_permissions()
+            else:
                 self.initialize_app()
                 return self.root_layout
-            else:
-                # Request permission
-                request_permissions([Permission.WRITE_EXTERNAL_STORAGE], self.permission_callback)
-                return Label(text='Requesting permissions...')
+
         else:
             self.initialize_app()
         return self.root_layout
+
 
     def initialize_app(self):
         setup_database_connection()
@@ -435,20 +446,25 @@ class PashPashApp(MDApp):
     def permission_callback(self, permissions, results):
         if all(results):
             self.initialize_app()
-            self.root = self.root_layout  # Update the root widget
+            self.root.clear_widgets()  # Clear any placeholder widgets
+            self.root.add_widget(self.root_layout)
         else:
-            self.show_permission_denied_message()
+            popup = Popup(
+                title='Permission Denied',
+                content=Label(text='Storage permission is required for this app to function properly. Please grant the permission and restart the app. The app will close in 5 seconds.'),
+                size_hint=(0.8, 0.4)
+            )
+            popup.bind(on_dismiss=self.stop)
+            popup.open()
+            # Schedule the app to close after 5 seconds
+            Clock.schedule_once(self.stop, 5)
+            self.check_permissions()
 
-    def show_permission_denied_message(self):
-        popup = Popup(
-            title='Permission Denied',
-            content=Label(text='Storage permission is required for this app to function properly. Please grant the permission and restart the app. The app will close in 5 seconds.'),
-            size_hint=(0.8, 0.4)
-        )
-        popup.bind(on_dismiss=self.stop)
-        popup.open()
-        # Schedule the app to close after 5 seconds
-        Clock.schedule_once(self.stop, 5)
+    def check_permissions(self):
+        # Request permission
+        from android.permissions import request_permissions, Permission
+        request_permissions([Permission.WRITE_EXTERNAL_STORAGE], self.permission_callback)
+        return Label(text='Requesting permissions...')
 
     def toggle_menu(self, instance):
         if instance.state == 'down':
