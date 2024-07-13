@@ -25,7 +25,10 @@ from kivymd.uix.button import MDRaisedButton
 from kivy.utils import platform
 from kivy.clock import Clock
 from kivy.clock import mainthread
+from cryptography.fernet import Fernet
 
+key = os.getenv('ENCRYPTION_KEY').encode()
+cipher_suite = Fernet(key)
 
 # For Android 10, export files
 def get_downloads_dir_android():
@@ -210,17 +213,23 @@ class PasswordGeneratorWidget(Screen):
 
         self.generated_password_label.text = password_leet
 
+    
+    def encrypt_password(self, plain_pass):
+        cipher_text = cipher_suite.encrypt(plain_pass.encode())
+        return cipher_text
+
     def save_password(self, instance):
         email_add, username, website, year = self.get_user_input()
 
         password = self.generated_password_label.text
+        encrypted_password = self.encrypt_password(password)
 
         # Save to SQLite database
         conn, cursor = setup_database_connection()
 
         # Insert data into table
         cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
-                    (email_add, username, website, year, password))
+                    (email_add, username, website, year, encrypted_password))
         conn.commit()
 
         # Close cursor and connection
@@ -346,17 +355,29 @@ class PasswordManagerWidget(Screen):
     def on_enter(self):
         # This method is called every time the screen is entered
         self.fetch_passwords()
+    
+    def decrypt_password(self, cipher_text):
+        plain_password = cipher_suite.decrypt(cipher_text).decode()
+        return plain_password
+    
+    def clear_selection(self, *args):
+        if self.table:
+            self.table.table_data.select_all("normal")
 
     def fetch_passwords(self):
         conn, cursor = setup_database_connection()
-        cursor.execute('SELECT * FROM passwords')
+        cursor.execute('SELECT id, email_add, username, website, year, password FROM passwords')
         rows = cursor.fetchall()
         conn.close()
 
         self.row_data = []
+        self.id_map = {}  # Dictionary to store IDs
         for row in rows:
-            _, email_add, username, website, year, password = row
-            self.row_data.append((email_add, username, year, website, password))
+            id, email_add, username, website, year, password = row
+            password = self.decrypt_password(password)
+            visible_row = (email_add, username, year, website, password)
+            self.row_data.append(visible_row)
+            self.id_map[visible_row] = id  # Store ID with visible data as key
 
         self.table.row_data = self.row_data
         # Force table update
@@ -369,16 +390,19 @@ class PasswordManagerWidget(Screen):
         conn, cursor = setup_database_connection()
 
         for row in checked_rows:
-            email_add, username, year, website, password = row
-            cursor.execute('DELETE FROM passwords WHERE email_add=? AND username=? AND year=? AND website=? AND password=?',
-                        (email_add, username, year, website, password))
+            row_tuple = tuple(row)  # Convert the row to a tuple
+            id = self.id_map.get(row_tuple)  # Get the ID using the tuple
+            if id is not None:
+                cursor.execute('DELETE FROM passwords WHERE id=?', (id,))
+            else:
+                print(f"Warning: ID not found for row {row_tuple}")
 
         conn.commit()
         conn.close()
 
         # Refresh table
+        self.clear_selection()
         self.fetch_passwords()
-
 
 class PashPashApp(MDApp):
     def build(self):
