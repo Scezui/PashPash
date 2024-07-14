@@ -5,16 +5,20 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.floatlayout import FloatLayout
 from kivy.metrics import dp, sp
-from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivymd.uix.datatables import MDDataTable
 from kivymd.app import MDApp
 from kivy.uix.togglebutton import ToggleButton
 from kivymd.uix.button import MDIconButton
+from kivy.uix.scrollview import ScrollView
+from kivymd.uix.list import MDList, TwoLineAvatarIconListItem
+from kivy.uix.boxlayout import BoxLayout
+from kivymd.uix.list import IRightBodyTouch
+from kivy.utils import get_color_from_hex
+from kivymd.uix.menu import MDDropdownMenu
 import random
 import string
 import sqlite3
-from kivy.graphics import Color, RoundedRectangle, StencilPush, StencilUse, StencilUnUse, StencilPop
+from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.popup import Popup
 import csv
 from kivy.app import App
@@ -25,10 +29,11 @@ from kivymd.uix.button import MDRaisedButton
 from kivy.utils import platform
 from kivy.clock import Clock
 from kivy.clock import mainthread
-from cryptography.fernet import Fernet
+from secure_storage import get_cipher_suite
+from kivy.core.clipboard import Clipboard
 
-key = os.getenv('ENCRYPTION_KEY').encode()
-cipher_suite = Fernet(key)
+
+cipher_suite = get_cipher_suite()
 
 # For Android 10, export files
 def get_downloads_dir_android():
@@ -236,32 +241,130 @@ class PasswordGeneratorWidget(Screen):
         cursor.close()
         conn.close()
 
+class PasswordListItem(TwoLineAvatarIconListItem):
+    def __init__(self, password_manager, **kwargs):
+        super().__init__(**kwargs)
+        self.password_manager = password_manager
+        self.option_button = OptionButton(self, self.password_manager)
+        self.add_widget(BoxLayout(size_hint_x=None, width=dp(48)))  # Add a spacer widget
+        self.add_widget(self.option_button)  # Add the option button
+
+from kivymd.uix.list import OneLineListItem
+
+class OptionButton(IRightBodyTouch, MDIconButton):
+    def __init__(self, list_item, password_manager, **kwargs):
+        super().__init__(**kwargs)
+        self.list_item = list_item
+        self.password_manager = password_manager
+        self.icon = "dots-vertical"
+        self.pos_hint = {"center_y": .5}
+        self.on_release = self.show_options
+        self.menu = None
+        self.confirm_popup = None  # Initialize confirm_popup attribute
+
+
+    def show_options(self):
+        self.menu = MDDropdownMenu(
+            caller=self,
+            items=[
+                {
+                    "text": "Delete",
+                    "viewclass": "OneLineListItem",
+                    "on_release": self.show_delete_confirmation
+                },
+                {
+                    "text": "Copy to Clipboard",
+                    "viewclass": "OneLineListItem",
+                    "on_release": self.copy_to_clipboard
+                }
+            ],
+            width_mult=2,
+            pos_hint={'right': 1}  # Attempt to align the menu's right edge with the right edge of the screen
+
+        )
+        self.menu.open()
+
+    def show_delete_confirmation(self, *args):
+        if self.menu:
+            self.menu.dismiss()
+
+        content = BoxLayout(orientation='vertical')
+        message = Label(text="Are you sure you want to delete this item?", size_hint_y=None, height=dp(50))
+        content.add_widget(message)
+
+        buttons = BoxLayout(size_hint_y=None, height=dp(50))
+        yes_button = Button(text='Yes')
+        no_button = Button(text='No')
+        buttons.add_widget(yes_button)
+        buttons.add_widget(no_button)
+
+        content.add_widget(buttons)
+
+        self.confirm_popup = Popup(
+            title='Confirm Deletion',
+            content=content,
+            size_hint=(None, None),
+            size=(dp(300), dp(160))
+        )
+        yes_button.bind(on_release=self.delete_item)
+        no_button.bind(on_release=self.confirm_popup.dismiss)
+        self.confirm_popup.open()
+
+    def delete_item(self, *args):
+        self.password_manager.delete_selected(self.list_item)
+        if self.confirm_popup:
+            self.confirm_popup.dismiss()
+    
+    def copy_to_clipboard(self):
+        id = self.password_manager.id_map.get(self.list_item)
+        if id is not None:
+            conn, cursor = setup_database_connection()
+            cursor.execute('SELECT password from passwords WHERE id=?', (id,))
+            row = cursor.fetchone()
+            conn.close
+
+            if row:
+                encrypted_password = row[0]
+                decrypted_password = self.password_manager.decrypt_password(encrypted_password)
+                Clipboard.copy(decrypted_password)
+        
+        if self.menu:
+            self.menu.dismiss()
+            self.show_popup("Password copied to clipboard!")
+
+    def show_popup(self, message):
+        popup = Popup(
+            title='Notification',
+            content=Label(text=message, size_hint_y=None, height=dp(50)),
+            size_hint=(None, None),
+            size=(dp(250), dp(150))
+        )
+        popup.open()
+
+
 class PasswordManagerWidget(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.column_data = [
-            ("Email Address", dp(40)),
-            ("Username", dp(30)),
-            ("Year", dp(20)),
-            ("Website", dp(30)),
-            ("Password", dp(30)),
-        ]
-        self.table = MDDataTable(
-            size_hint=(0.95, 0.6),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            use_pagination=True,
-            check=True,
-            column_data=self.column_data,
-        )
-        self.add_widget(self.table)
+        self.selected_items = []
+        self.selected_color = get_color_from_hex('#00FF00')  # Green color
+        self.long_press_event = None
+
+        
+        # Create a ScrollView
+        self.scroll = ScrollView(size_hint=(1, 0.8), pos_hint={'center_x': 0.5, 'center_y': 0.55})
+        
+        # Create MDList
+        self.list = MDList()
+        self.scroll.add_widget(self.list)
+        self.add_widget(self.scroll)
 
         # Create a BoxLayout for buttons
         self.button_layout = BoxLayout(
             orientation='horizontal',
             size_hint=(1, None),
-            height=dp(56),  # Standard height for buttons
-            spacing=dp(10),  # Space between buttons
-            padding=[dp(10), dp(10), dp(10), dp(10)]  # Padding around buttons
+            height=dp(56),
+            spacing=dp(10),
+            padding=[dp(10), dp(10), dp(10), dp(10)]
         )
 
         # Create Export to CSV button
@@ -273,30 +376,110 @@ class PasswordManagerWidget(Screen):
         self.export_csv.bind(on_release=self.export_to_csv)
         self.button_layout.add_widget(self.export_csv)
 
-        # Create Delete Selected button
-        self.delete_button = MDRaisedButton(
-            text="Delete Selected",
-            size_hint=(1, None),
-            height=dp(56)
+        # Add the Eye button to toggle password visibility
+        self.eye_button = MDIconButton(
+            icon="eye-off",
+            size_hint=(None, None),
+            height=dp(56),
+            width=dp(56),
+            on_release=self.toggle_password_visibility
         )
-        self.delete_button.bind(on_release=self.delete_selected)
-        self.button_layout.add_widget(self.delete_button)
+        self.button_layout.add_widget(self.eye_button)
+
+        # # Create Delete Selected button
+        # self.delete_button = MDRaisedButton(
+        #     text="Delete Selected",
+        #     size_hint=(1, None),
+        #     height=dp(56)
+        # )
+        # self.delete_button.bind(on_release=self.delete_selected)
+        # self.button_layout.add_widget(self.delete_button)
 
         # Add button layout to the screen
         self.add_widget(self.button_layout)
 
         # Adjust the position of the button layout
         self.button_layout.pos_hint = {'center_x': 0.5, 'y': 0.02}
+        self.hidden_passwords = True
+        self.full_row_data = []
+        self.selected_items = []
+
+    def on_enter(self):
+        self.fetch_passwords()
+
+    def fetch_passwords(self):
+        conn, cursor = setup_database_connection()
+        cursor.execute('SELECT id, email_add, username, website, year, password FROM passwords')
+        rows = cursor.fetchall()
+        conn.close()
+
+        self.list.clear_widgets()
+        self.id_map = {}
+        self.full_row_data = rows
+
+        for row in rows:
+            self.add_list_item(row)
+
+    def add_list_item(self, row):
+        id, email_add, username, website, year, encrypted_password = row
+        decrypted_password = self.decrypt_password(encrypted_password)
+        password_display = '*' * 8 if self.hidden_passwords else decrypted_password
+
+        item = PasswordListItem(
+            self,  # Pass self (PasswordManagerWidget instance) here
+            text=f"{email_add} - {username}",
+            secondary_text=f"{website} ({year}) - {password_display}"
+        )
+        item.bind(on_long_press=self.select_item)
+        self.list.add_widget(item)
+
+        self.id_map[item] = id
+
+    def select_item_delayed(self, instance, touch):
+        if self.long_press_event is not None:
+            self.long_press_event.cancel()
+
+        self.long_press_event = Clock.schedule_once(lambda dt: self.select_item(instance, touch), 0.5)
+        touch.grab(self)  # Grab the touch event
+
+    def select_item(self, instance, touch):
+        if instance not in self.selected_items:
+            instance.bg_color = self.selected_color
+            self.selected_items.append(instance)
+        else:
+            instance.bg_color = (1, 1, 1, 1)  # Reset to default background color
+            self.selected_items.remove(instance)
+
+        touch.ungrab(self)  # Release the touch event
+    def toggle_password_visibility(self, instance):
+        self.hidden_passwords = not self.hidden_passwords
+        self.eye_button.icon = "eye-off" if self.hidden_passwords else "eye"
+        self.update_list_data()
+
+    def update_list_data(self):
+        self.list.clear_widgets()
+        for row in self.full_row_data:
+            self.add_list_item(row)
+
+    def delete_selected(self, item):
+        conn, cursor = setup_database_connection()
+        
+        id = self.id_map.get(item)
+        if id is not None:
+            cursor.execute('DELETE FROM passwords WHERE id=?', (id,))
+            self.list.remove_widget(item)
+            self.full_row_data = [row for row in self.full_row_data if row[0] != id]
+            del self.id_map[item]  # Remove the item from id_map
+
+        conn.commit()
+        conn.close()
+        
+        # Update the list view
+        self.update_list_data()
 
     def export_to_csv(self, *args):
         try:
-            conn, cursor = setup_database_connection()
-
-            cursor.execute("SELECT * FROM passwords")
-            all_data = cursor.fetchall()
-
-            # Process data
-            data = [row[1:] for row in all_data]  # This slices each tuple to exclude the first element (ID)
+            data = [row[1:] for row in self.full_row_data]  # Exclude ID
             column_headers = ['Email Address', 'Username', 'Website', 'Year', 'Password']
 
             # Export Path
@@ -304,37 +487,30 @@ class PasswordManagerWidget(Screen):
                 from androidstorage4kivy import SharedStorage
                 shared_storage = SharedStorage()
                 
-                # Get the cache directory
                 cache_dir = shared_storage.get_cache_dir()
                 if not cache_dir:
                     raise Exception("Could not get cache directory")
                 
-                # Create a temporary file in the cache directory
                 temp_file_path = os.path.join(cache_dir, 'passwords_export.csv')
                 
-                # Write to the temporary file
                 with open(temp_file_path, 'w', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
                     csv_writer.writerow(column_headers)
                     csv_writer.writerows(data)
                 
-                # Copy the file to shared storage
                 uri = shared_storage.copy_to_shared(temp_file_path, collection='DIRECTORY_DOCUMENTS')
                 
                 if uri:
-                    # Convert URI to string for display
                     export_path = uri.toString()
                 else:
                     raise Exception("Failed to copy file to shared storage")
             else:
                 export_path = 'passwords_export.csv'
-                # Write data to CSV file
                 with open(export_path, 'w', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
                     csv_writer.writerow(column_headers)
                     csv_writer.writerows(data)
 
-            # Show success popup
             popup = Popup(title='Success',
                         content=Label(text=f'Data exported successfully!\nFile location: {export_path}',
                                         text_size=(dp(250), None),
@@ -344,7 +520,7 @@ class PasswordManagerWidget(Screen):
 
         except Exception as e:
             error_msg = f"Error exporting data: {str(e)}\n\n{traceback.format_exc()}"
-            print(error_msg)  # This will appear in your Android logcat
+            print(error_msg)
             popup = Popup(title='Error',
                         content=Label(text=error_msg,
                                         text_size=(dp(250), None),
@@ -352,57 +528,9 @@ class PasswordManagerWidget(Screen):
                         size_hint=(None, None), size=(dp(300), dp(200)))
             popup.open()
 
-    def on_enter(self):
-        # This method is called every time the screen is entered
-        self.fetch_passwords()
-    
     def decrypt_password(self, cipher_text):
         plain_password = cipher_suite.decrypt(cipher_text).decode()
         return plain_password
-    
-    def clear_selection(self, *args):
-        if self.table:
-            self.table.table_data.select_all("normal")
-
-    def fetch_passwords(self):
-        conn, cursor = setup_database_connection()
-        cursor.execute('SELECT id, email_add, username, website, year, password FROM passwords')
-        rows = cursor.fetchall()
-        conn.close()
-
-        self.row_data = []
-        self.id_map = {}  # Dictionary to store IDs
-        for row in rows:
-            id, email_add, username, website, year, password = row
-            password = self.decrypt_password(password)
-            visible_row = (email_add, username, year, website, password)
-            self.row_data.append(visible_row)
-            self.id_map[visible_row] = id  # Store ID with visible data as key
-
-        self.table.row_data = self.row_data
-        # Force table update
-        self.table.update_row_data(self.table, self.row_data)
-
-    def delete_selected(self, instance):
-        checked_rows = self.table.get_row_checks()
-        if not checked_rows:
-            return
-        conn, cursor = setup_database_connection()
-
-        for row in checked_rows:
-            row_tuple = tuple(row)  # Convert the row to a tuple
-            id = self.id_map.get(row_tuple)  # Get the ID using the tuple
-            if id is not None:
-                cursor.execute('DELETE FROM passwords WHERE id=?', (id,))
-            else:
-                print(f"Warning: ID not found for row {row_tuple}")
-
-        conn.commit()
-        conn.close()
-
-        # Refresh table
-        self.clear_selection()
-        self.fetch_passwords()
 
 class PashPashApp(MDApp):
     def build(self):
