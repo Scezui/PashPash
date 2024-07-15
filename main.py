@@ -31,7 +31,7 @@ from kivy.clock import Clock
 from kivy.clock import mainthread
 from secure_storage import get_cipher_suite
 from kivy.core.clipboard import Clipboard
-
+from kivymd.uix.list import OneLineListItem
 
 cipher_suite = get_cipher_suite()
 
@@ -66,6 +66,7 @@ def setup_database_connection():
     
     return conn, cursor
 
+# Password Generator Background, gray
 class Card(BoxLayout):
     def __init__(self, **kwargs):
         super(Card, self).__init__(**kwargs)
@@ -93,153 +94,12 @@ class Card(BoxLayout):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-
+# Input only accepts integers
 class IntegerInput(TextInput):
     def insert_text(self, substring, from_undo=False):
         if substring.isdigit():
             return super().insert_text(substring, from_undo=from_undo)
 
-
-class PasswordGeneratorWidget(Screen):
-    def __init__(self, **kwargs):
-        super(PasswordGeneratorWidget, self).__init__(**kwargs)
-
-        self.card = Card()
-        self.card.pos_hint = {'center_x': 0.5, 'top': 0.88}
-
-        # Label and Input for password length
-        length_label = Label(text='Password Length:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
-        length_label.bind(size=length_label.setter('text_size'))
-        self.card.add_widget(length_label)
-        self.password_length_input = TextInput(text='15', multiline=False, hint_text='Enter password length',
-                                                font_size=sp(14), height=dp(40))
-        self.card.add_widget(self.password_length_input)
-
-        # Label and Input for password length
-        email = Label(text='Email Adress:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
-        email.bind(size=email.setter('text_size'))
-        self.card.add_widget(email)
-        self.email = TextInput(multiline=False, hint_text='Enter email address',
-                                                font_size=sp(14), height=dp(50))
-        self.card.add_widget(self.email)
-
-        # Label and Input for username
-        user_label = Label(text='Username:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
-        user_label.bind(size=user_label.setter('text_size'))
-        self.card.add_widget(user_label)
-        self.username = TextInput(multiline=False, hint_text='Enter Username:', font_size=sp(14), height=dp(40))
-        self.card.add_widget(self.username)
-
-        # Label and Input for website
-        website_label = Label(text='Website:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
-        website_label.bind(size=website_label.setter('text_size'))
-        self.card.add_widget(website_label)
-        self.password_website = TextInput(multiline=False, hint_text='Enter website:', font_size=sp(14), height=dp(40))
-        self.card.add_widget(self.password_website)
-
-        # Label and Input for Year Created
-        year_label = Label(text='Year:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
-        year_label.bind(size=year_label.setter('text_size'))
-        self.card.add_widget(year_label)
-        self.year = IntegerInput(multiline=False, hint_text='Enter Year:', font_size=sp(14), height=dp(40))
-        self.card.add_widget(self.year)
-
-        # Button to generate password
-        self.generate_button = Button(text='Generate Password', font_size=sp(16), height=dp(50))
-        self.generate_button.bind(on_press=self.generate_password)
-        self.card.add_widget(self.generate_button)
-
-        # Button to save password
-        self.save_button = Button(text='Save Password', font_size=sp(16), height=dp(50))
-        self.save_button.bind(on_press=self.save_password)
-        self.card.add_widget(self.save_button)
-
-        self.generated_password_label = TextInput(
-            text='Your password will appear here',
-            halign='center',
-            size_hint=(0.8, None),
-            height=dp(40),
-            pos_hint={'center_x': 0.5},
-            readonly=True,
-            multiline=False,
-            font_size=sp(16)
-        )
-        self.card.add_widget(self.generated_password_label)
-
-        self.add_widget(self.card)
-
-    def get_user_input(self):
-        """Fetch user input values and return them."""
-        email_add = str(self.email.text)
-        username = str(self.username.text)
-        website = str(self.password_website.text)
-        year = str(self.year.text)
-        return email_add, username, website, year
-
-
-    def generate_password(self, instance):
-        email_add, username, website, year = self.get_user_input()
-        punctuation = random.choice('.!_')  # Choose one punctuation randomly
-        password_parts = [website, username, punctuation, year]
-
-        # Handle default value for password length
-        password_length_text = self.password_length_input.text.strip()
-        if not password_length_text:
-            self.generated_password_label.text = "Please enter a password length"
-            return
-
-        try:
-            length = int(password_length_text)
-            if length <= 8:
-                self.generated_password_label.text = "Password length must be greater than 8"
-                return
-        except ValueError:
-            self.generated_password_label.text = "Invalid input for password length"
-            return
-
-        leet_dict = {
-            'a': '4', 'b': '8', 'c': '<', 'd': '|)', 'e': '3', 'g': '6', 'h': '#', 'i': '1',
-            'l': '1', 'o': '0', 'q': '0,','s': '5', 't': '7','z': '2',
-            '0': 'O', '1': 'L', '2': 'Z', '3': 'E', '4': 'A', '5': 'S', '6': 'G', '7': 'T', '8': 'B', '9': 'g'
-        }
-
-        random.shuffle(password_parts)
-        password = ''.join(password_parts).replace(' ', '')
-        if len(password) < length:
-            password += ''.join(random.choice(string.ascii_letters + string.digits + punctuation) for _ in
-                                range(length - len(password)))
-
-        password_leet = ''
-        for char in password:
-            if char.isalpha() and random.random() < 0.2:  # 50% probability to convert to Leet speak
-                password_leet += leet_dict.get(char.lower(), char)
-            else:
-                password_leet += char
-
-        self.generated_password_label.text = password_leet
-
-    
-    def encrypt_password(self, plain_pass):
-        cipher_text = cipher_suite.encrypt(plain_pass.encode())
-        return cipher_text
-
-    def save_password(self, instance):
-        email_add, username, website, year = self.get_user_input()
-
-        password = self.generated_password_label.text
-        encrypted_password = self.encrypt_password(password)
-
-        # Save to SQLite database
-        conn, cursor = setup_database_connection()
-
-        # Insert data into table
-        cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
-                    (email_add, username, website, year, encrypted_password))
-        conn.commit()
-
-        # Close cursor and connection
-        cursor.close()
-        conn.close()
 
 class PasswordListItem(TwoLineAvatarIconListItem):
     def __init__(self, password_manager, **kwargs):
@@ -249,8 +109,81 @@ class PasswordListItem(TwoLineAvatarIconListItem):
         self.add_widget(BoxLayout(size_hint_x=None, width=dp(48)))  # Add a spacer widget
         self.add_widget(self.option_button)  # Add the option button
 
-from kivymd.uix.list import OneLineListItem
+class EditPasswordScreen(Screen):
+    def __init__(self, password_manager, **kwargs):
+        super().__init__(**kwargs)
+        self.password_manager = password_manager
+        # Create the main layout
 
+        self.layout = BoxLayout(orientation='vertical',size_hint_y=(0.8), height=dp(400), padding=dp(150), spacing=dp(3))
+
+        # Set size_hint_y to None and control the height directly
+        self.email_add = Label(text='Email Address:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        self.email_add.bind(size=self.email_add.setter('text_size'))
+        self.email_input = TextInput(hint_text='Email Address', multiline=False, size_hint_y=None, height=dp(40))
+
+        self.username = Label(text='Username:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        self.username.bind(size=self.username.setter('text_size'))
+        self.username_input = TextInput(hint_text='Username', multiline=False, size_hint_y=None, height=dp(40))
+
+        self.website = Label(text='Website:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        self.website.bind(size=self.website.setter('text_size'))
+        self.website_input = TextInput(hint_text='Website', multiline=False, size_hint_y=None, height=dp(40))
+
+        self.year = Label(text='Year:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        self.year.bind(size=self.year.setter('text_size'))
+        self.year_input = TextInput(hint_text='Year', multiline=False, size_hint_y=None, height=dp(40))
+
+        self.password = Label(text='Password:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        self.password.bind(size=self.password.setter('text_size'))
+        self.password_input = TextInput(hint_text='Password', multiline=False, size_hint_y=None, height=dp(40))
+
+        # Add widgets to layout
+        self.layout.add_widget(self.email_add)
+        self.layout.add_widget(self.email_input)
+
+        self.layout.add_widget(self.username)
+        self.layout.add_widget(self.username_input)
+        
+        self.layout.add_widget(self.website)
+        self.layout.add_widget(self.website_input)
+
+        self.layout.add_widget(self.year)
+        self.layout.add_widget(self.year_input)
+
+        self.layout.add_widget(self.password)
+        self.layout.add_widget(self.password_input)
+
+        self.update_button = Button(text='Update Password', size_hint_y=None, height=dp(50))
+        self.update_button.bind(on_press=self.update_password)
+        self.layout.add_widget(self.update_button)
+
+        self.add_widget(self.layout)
+
+    def populate_fields(self, id, email_add, username, website, year, password):
+        self.id = id
+        self.email_input.text = email_add
+        self.username_input.text = username
+        self.website_input.text = website
+        self.year_input.text = year
+        self.password_input.text = password
+
+    def update_password(self, instance):
+        updated_data = {
+            'id': self.id,
+            'email_add': self.email_input.text,
+            'username': self.username_input.text,
+            'website': self.website_input.text,
+            'year': self.year_input.text,
+            'password': self.password_input.text
+        }
+        self.password_manager.update_password(updated_data)
+        self.manager.current = 'password_manager'
+
+
+
+
+# *********************************** AUXILLIARY CLASSES ***************************************
 class OptionButton(IRightBodyTouch, MDIconButton):
     def __init__(self, list_item, password_manager, **kwargs):
         super().__init__(**kwargs)
@@ -276,6 +209,11 @@ class OptionButton(IRightBodyTouch, MDIconButton):
                     "text": "Copy to Clipboard",
                     "viewclass": "OneLineListItem",
                     "on_release": self.copy_to_clipboard
+                },
+                {
+                    "text": "Edit",
+                    "viewclass": "OneLineListItem",
+                    "on_release": self.edit_password
                 }
             ],
             width_mult=2,
@@ -340,7 +278,180 @@ class OptionButton(IRightBodyTouch, MDIconButton):
             size=(dp(250), dp(150))
         )
         popup.open()
+    
+    def edit_password(self, *args):
+        if self.menu:
+            self.menu.dismiss()
+        id = self.password_manager.id_map.get(self.list_item)
+        if id is not None:
+            self.password_manager.show_edit_screen(id)
+    
+    # def update_password(self, id, email_add, username, website, year, password):
+    #     # Encrypt the updated password before saving
+    #     encrypted_password = self.password_manager.encrypt_password(password)
 
+    #     # Establish a database connection
+    #     conn, cursor = setup_database_connection()
+
+    #     # Update the password entry with the new details
+    #     cursor.execute('''
+    #         UPDATE passwords
+    #         SET email_add=?, username=?, website=?, year=?, password=?
+    #         WHERE id=?
+    #     ''', (email_add, username, website, year, encrypted_password, id))
+
+    #     # Commit the changes and close the connection
+    #     conn.commit()
+    #     conn.close()
+
+        # Optionally, update the UI or notify the user that the update was successful
+
+# *********************************** PASSWORD GENERATOR WIDGET ***************************************
+
+class PasswordGeneratorWidget(Screen):
+    def __init__(self, **kwargs):
+        super(PasswordGeneratorWidget, self).__init__(**kwargs)
+
+        self.card = Card()
+        self.card.pos_hint = {'center_x': 0.5, 'top': 0.88}
+
+        # Label and Input for password length
+        length_label = Label(text='Password Length:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        length_label.bind(size=length_label.setter('text_size'))
+        self.card.add_widget(length_label)
+        self.password_length_input = TextInput(text='15', multiline=False, hint_text='Enter password length',
+                                                font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.password_length_input)
+
+        # Label and Input for password length
+        email = Label(text='Email Adress:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        email.bind(size=email.setter('text_size'))
+        self.card.add_widget(email)
+        self.email = TextInput(multiline=False, hint_text='Enter email address',
+                                                font_size=sp(14), height=dp(50))
+        self.card.add_widget(self.email)
+
+        # Label and Input for username
+        user_label = Label(text='Username:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        user_label.bind(size=user_label.setter('text_size'))
+        self.card.add_widget(user_label)
+        self.username = TextInput(multiline=False, hint_text='Enter Username:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.username)
+
+        # Label and Input for website
+        website_label = Label(text='Website:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        website_label.bind(size=website_label.setter('text_size'))
+        self.card.add_widget(website_label)
+        self.password_website = TextInput(multiline=False, hint_text='Enter website:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.password_website)
+
+        # Label and Input for Year Created
+        year_label = Label(text='Year:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        year_label.bind(size=year_label.setter('text_size'))
+        self.card.add_widget(year_label)
+        self.year = IntegerInput(multiline=False, hint_text='Enter Year:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.year)
+
+        # Button to generate password
+        self.generate_button = Button(text='Generate Password', font_size=sp(16), height=dp(50))
+        self.generate_button.bind(on_press=self.generate_password)
+        self.card.add_widget(self.generate_button)
+
+        # Button to save password
+        self.save_button = Button(text='Save Password', font_size=sp(16), height=dp(50))
+        self.save_button.bind(on_press=self.save_password)
+        self.card.add_widget(self.save_button)
+
+        self.generated_password_label = TextInput(
+            text='Your password will appear here',
+            halign='center',
+            size_hint=(0.8, None),
+            height=dp(40),
+            pos_hint={'center_x': 0.5},
+            readonly=False,
+            multiline=False,
+            font_size=sp(16)
+        )
+
+        self.card.add_widget(self.generated_password_label)
+
+        self.add_widget(self.card)
+
+    def get_user_input(self):
+        """Fetch user input values and return them."""
+        email_add = str(self.email.text)
+        username = str(self.username.text)
+        website = str(self.password_website.text)
+        year = str(self.year.text)
+        return email_add, username, website, year
+
+
+    def generate_password(self, instance):
+        email_add, username, website, year = self.get_user_input()
+        punctuation = random.choice('.!_')  # Choose one punctuation randomly
+        password_parts = [website, username, punctuation, year]
+
+        # Handle default value for password length
+        password_length_text = self.password_length_input.text.strip()
+        if not password_length_text:
+            self.generated_password_label.text = "Please enter a password length"
+            return
+
+        try:
+            length = int(password_length_text)
+            if length <= 8:
+                self.generated_password_label.text = "Password length must be greater than 8"
+                return
+        except ValueError:
+            self.generated_password_label.text = "Invalid input for password length"
+            return
+
+        leet_dict = {
+            'a': '4', 'b': '8', 'c': '<', 'd': '|)', 'e': '3', 'g': '6', 'h': '#', 'i': '1',
+            'l': '1', 'o': '0', 'q': '0,','s': '5', 't': '7','z': '2',
+            '0': 'O', '1': 'L', '2': 'Z', '3': 'E', '4': 'A', '5': 'S', '6': 'G', '7': 'T', '8': 'B', '9': 'g'
+        }
+
+        random.shuffle(password_parts)
+        password = ''.join(password_parts).replace(' ', '')
+        if len(password) < length:
+            password += ''.join(random.choice(string.ascii_letters + string.digits + punctuation) for _ in
+                                range(length - len(password)))
+
+        password_leet = ''
+        for char in password:
+            if char.isalpha() and random.random() < 0.2:  # 50% probability to convert to Leet speak
+                password_leet += leet_dict.get(char.lower(), char)
+            else:
+                password_leet += char
+
+        self.generated_password_label.text = password_leet
+
+    def save_password(self, instance):
+        email_add, username, website, year = self.get_user_input()
+
+        password = self.generated_password_label.text
+        encrypted_password = self.encrypt_password(password)
+
+        # Save to SQLite database
+        conn, cursor = setup_database_connection()
+
+        # Insert data into table
+        cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
+                    (email_add, username, website, year, encrypted_password))
+        conn.commit()
+
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+
+    def encrypt_password(self, plain_pass):
+        cipher_text = cipher_suite.encrypt(plain_pass.encode())
+        return cipher_text
+    
+
+
+# *********************************** PASSWORD MANAGER WIDGET ***************************************
 
 class PasswordManagerWidget(Screen):
     def __init__(self, **kwargs):
@@ -351,7 +462,7 @@ class PasswordManagerWidget(Screen):
 
         
         # Create a ScrollView
-        self.scroll = ScrollView(size_hint=(1, 0.8), pos_hint={'center_x': 0.5, 'center_y': 0.55})
+        self.scroll = ScrollView(size_hint=(1, 0.8), pos_hint={'center_x': 0.5, 'center_y': 0.5})
         
         # Create MDList
         self.list = MDList()
@@ -385,17 +496,6 @@ class PasswordManagerWidget(Screen):
             on_release=self.toggle_password_visibility
         )
         self.button_layout.add_widget(self.eye_button)
-
-        # # Create Delete Selected button
-        # self.delete_button = MDRaisedButton(
-        #     text="Delete Selected",
-        #     size_hint=(1, None),
-        #     height=dp(56)
-        # )
-        # self.delete_button.bind(on_release=self.delete_selected)
-        # self.button_layout.add_widget(self.delete_button)
-
-        # Add button layout to the screen
         self.add_widget(self.button_layout)
 
         # Adjust the position of the button layout
@@ -403,6 +503,38 @@ class PasswordManagerWidget(Screen):
         self.hidden_passwords = True
         self.full_row_data = []
         self.selected_items = []
+
+
+    
+    def show_edit_screen(self, id):
+        conn, cursor = setup_database_connection()
+        cursor.execute('SELECT * from passwords WHERE id=?', (id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            id, email_add, username, website, year, encrypted_password = row
+            decrypted_password = self.decrypt_password(encrypted_password)
+            edit_screen = self.manager.get_screen('edit_password')
+            edit_screen.populate_fields(id, email_add, username, website, year, decrypted_password)
+            self.manager.current = 'edit_password'
+    
+    def update_password(self, updated_data):
+        conn, cursor = setup_database_connection()
+        
+        encrypted_password = self.encrypt_password(updated_data['password'])
+        
+        cursor.execute('''
+            UPDATE passwords
+            SET email_add=?, username=?, website=?, year=?, password=?
+            WHERE id=?
+        ''', (updated_data['email_add'], updated_data['username'], updated_data['website'], 
+              updated_data['year'], encrypted_password, updated_data['id']))
+        
+        conn.commit()
+        conn.close()
+        
+        self.fetch_passwords()
 
     def on_enter(self):
         self.fetch_passwords()
@@ -527,10 +659,17 @@ class PasswordManagerWidget(Screen):
                                         size_hint_y=None, height=dp(100)),
                         size_hint=(None, None), size=(dp(300), dp(200)))
             popup.open()
-
+        
     def decrypt_password(self, cipher_text):
         plain_password = cipher_suite.decrypt(cipher_text).decode()
         return plain_password
+
+    def encrypt_password(self, plain_pass):
+        cipher_text = cipher_suite.encrypt(plain_pass.encode())
+        return cipher_text
+
+
+# *********************************** BUILD AND INITIALIZR APP ***************************************
 
 class PashPashApp(MDApp):
     def build(self):
@@ -550,7 +689,6 @@ class PashPashApp(MDApp):
         #     self.initialize_app()
         return self.root_layout
 
-
     def initialize_app(self):
         setup_database_connection()
 
@@ -561,6 +699,10 @@ class PashPashApp(MDApp):
         # Password Manager Screen
         self.password_manager_screen = PasswordManagerWidget(name='password_manager')
         self.screen_manager.add_widget(self.password_manager_screen)
+
+        # Edit Password Screen
+        self.edit_password_screen = EditPasswordScreen(self.password_manager_screen, name='edit_password')
+        self.screen_manager.add_widget(self.edit_password_screen)
 
         # Menu Layout
         self.menu_layout = BoxLayout(
