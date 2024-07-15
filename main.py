@@ -33,6 +33,7 @@ from secure_storage import get_cipher_suite
 from kivy.core.clipboard import Clipboard
 from kivymd.uix.list import OneLineListItem
 
+# generate key for cryptography
 cipher_suite = get_cipher_suite()
 
 # For Android 10, export files
@@ -94,6 +95,11 @@ class Card(BoxLayout):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
+
+
+
+# *********************************** AUXILLIARY CLASSES ***************************************
+
 # Input only accepts integers
 class IntegerInput(TextInput):
     def insert_text(self, substring, from_undo=False):
@@ -115,7 +121,7 @@ class EditPasswordScreen(Screen):
         self.password_manager = password_manager
         # Create the main layout
 
-        self.layout = BoxLayout(orientation='vertical',size_hint_y=(0.8), height=dp(400), padding=dp(150), spacing=dp(3))
+        self.layout = BoxLayout(orientation='vertical', size_hint_y=(0.8), height=dp(400), padding=(10, 10, 10, 150), spacing=dp(3))
 
         # Set size_hint_y to None and control the height directly
         self.email_add = Label(text='Email Address:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
@@ -153,10 +159,19 @@ class EditPasswordScreen(Screen):
 
         self.layout.add_widget(self.password)
         self.layout.add_widget(self.password_input)
-
-        self.update_button = Button(text='Update Password', size_hint_y=None, height=dp(50))
+        
+        self.update_button = Button(text='Update Password', size_hint_y=None, height=dp(40), background_color=(0, 1, 0, 1))
         self.update_button.bind(on_press=self.update_password)
-        self.layout.add_widget(self.update_button)
+        self.back_button = Button(text='Back', size_hint_y=None, height=dp(40), background_color=(1, 0, 0, 1))
+        self.back_button.bind(on_press=lambda x: setattr(self.manager, 'current', 'password_manager'))
+
+        buttons_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40))
+
+        # Add both buttons to the buttons_layout
+        buttons_layout.add_widget(self.update_button)
+        buttons_layout.add_widget(self.back_button)
+
+        self.layout.add_widget(buttons_layout)
 
         self.add_widget(self.layout)
 
@@ -180,10 +195,6 @@ class EditPasswordScreen(Screen):
         self.password_manager.update_password(updated_data)
         self.manager.current = 'password_manager'
 
-
-
-
-# *********************************** AUXILLIARY CLASSES ***************************************
 class OptionButton(IRightBodyTouch, MDIconButton):
     def __init__(self, list_item, password_manager, **kwargs):
         super().__init__(**kwargs)
@@ -353,13 +364,15 @@ class PasswordGeneratorWidget(Screen):
         self.card.add_widget(self.year)
 
         # Button to generate password
-        self.generate_button = Button(text='Generate Password', font_size=sp(16), height=dp(50))
+        self.generate_button = Button(text='Generate Password', font_size=sp(16), height=dp(50),  background_color=(0, 0, 1, 1))
         self.generate_button.bind(on_press=self.generate_password)
         self.card.add_widget(self.generate_button)
 
         # Button to save password
-        self.save_button = Button(text='Save Password', font_size=sp(16), height=dp(50))
-        self.save_button.bind(on_press=self.save_password)
+        self.save_button = Button(text='Save Password', font_size=sp(16), height=dp(50), background_color=(0, 1, 0, 1))
+        # self.save_button = MDIconButton(icon="content-save", text='Save Password', pos_hint={'center_x': 0.5, 'center_y': 0.5})
+
+        self.save_button.bind(on_press=self.save_popup)
         self.card.add_widget(self.save_button)
 
         self.generated_password_label = TextInput(
@@ -376,6 +389,24 @@ class PasswordGeneratorWidget(Screen):
         self.card.add_widget(self.generated_password_label)
 
         self.add_widget(self.card)
+    
+    def save_popup(self, instance):
+        success = self.save_password(instance)  # Assuming save_password() is a method that returns True or False
+        if success:
+            popup = Popup(
+                title='Password Saved',
+                content=Label(text='Password saved successfully!', size_hint_y=None, height=dp(30)),
+                size_hint=(None, None),
+                size=(dp(250), dp(100))
+            )
+        else:
+            popup = Popup(
+                title='Error',
+                content=Label(text='Error saving password!', size_hint_y=None, height=dp(50)),
+                size_hint=(None, None),
+                size=(dp(250), dp(150))
+            )
+        popup.open()
 
     def get_user_input(self):
         """Fetch user input values and return them."""
@@ -428,23 +459,27 @@ class PasswordGeneratorWidget(Screen):
         self.generated_password_label.text = password_leet
 
     def save_password(self, instance):
-        email_add, username, website, year = self.get_user_input()
+        try:
+            email_add, username, website, year = self.get_user_input()
 
-        password = self.generated_password_label.text
-        encrypted_password = self.encrypt_password(password)
+            password = self.generated_password_label.text
+            encrypted_password = self.encrypt_password(password)
 
-        # Save to SQLite database
-        conn, cursor = setup_database_connection()
+            # Save to SQLite database
+            conn, cursor = setup_database_connection()
 
-        # Insert data into table
-        cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
-                    (email_add, username, website, year, encrypted_password))
-        conn.commit()
+            # Insert data into table
+            cursor.execute('INSERT INTO passwords (email_add, username, website, year, password) VALUES (?, ?, ?, ?, ?)',
+                        (email_add, username, website, year, encrypted_password))
+            conn.commit()
 
-        # Close cursor and connection
-        cursor.close()
-        conn.close()
-
+            # Close cursor and connection
+            cursor.close()
+            conn.close()
+            return True
+        
+        except:
+            return False
     def encrypt_password(self, plain_pass):
         cipher_text = cipher_suite.encrypt(plain_pass.encode())
         return cipher_text
@@ -505,7 +540,6 @@ class PasswordManagerWidget(Screen):
         self.selected_items = []
 
 
-    
     def show_edit_screen(self, id):
         conn, cursor = setup_database_connection()
         cursor.execute('SELECT * from passwords WHERE id=?', (id,))
@@ -646,8 +680,9 @@ class PasswordManagerWidget(Screen):
             popup = Popup(title='Success',
                         content=Label(text=f'Data exported successfully!\nFile location: {export_path}',
                                         text_size=(dp(250), None),
-                                        size_hint_y=None, height=dp(100)),
-                        size_hint=(None, None), size=(dp(300), dp(200)))
+                                        size_hint_y=None, height=dp(30)),
+                                        size_hint=(None, None), 
+                                        size=(dp(300), dp(105)))
             popup.open()
 
         except Exception as e:
