@@ -1,3 +1,4 @@
+# Libraries and Dependencies
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -32,6 +33,8 @@ from kivy.clock import mainthread
 from secure_storage import get_cipher_suite
 from kivy.core.clipboard import Clipboard
 from kivymd.uix.list import OneLineListItem
+from kivy.uix.widget import Widget
+
 
 # generate key for cryptography
 cipher_suite = get_cipher_suite()
@@ -121,47 +124,59 @@ class EditPasswordScreen(Screen):
         self.password_manager = password_manager
         # Create the main layout
 
-        self.layout = BoxLayout(orientation='vertical', size_hint_y=(0.8), height=dp(400), padding=(10, 10, 10, 150), spacing=dp(3))
-
-        # Set size_hint_y to None and control the height directly
-        self.email_add = Label(text='Email Address:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
-        self.email_add.bind(size=self.email_add.setter('text_size'))
-        self.email_input = TextInput(hint_text='Email Address', multiline=False, size_hint_y=None, height=dp(40))
-
-        self.username = Label(text='Username:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
-        self.username.bind(size=self.username.setter('text_size'))
-        self.username_input = TextInput(hint_text='Username', multiline=False, size_hint_y=None, height=dp(40))
-
-        self.website = Label(text='Website:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
-        self.website.bind(size=self.website.setter('text_size'))
-        self.website_input = TextInput(hint_text='Website', multiline=False, size_hint_y=None, height=dp(40))
-
-        self.year = Label(text='Year:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
-        self.year.bind(size=self.year.setter('text_size'))
-        self.year_input = TextInput(hint_text='Year', multiline=False, size_hint_y=None, height=dp(40))
-
-        self.password = Label(text='Password:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
-        self.password.bind(size=self.password.setter('text_size'))
-        self.password_input = TextInput(hint_text='Password', multiline=False, size_hint_y=None, height=dp(40))
-
-        # Add widgets to layout
-        self.layout.add_widget(self.email_add)
-        self.layout.add_widget(self.email_input)
-
-        self.layout.add_widget(self.username)
-        self.layout.add_widget(self.username_input)
+        self.card = Card()
+        self.card.pos_hint = {'center_x': 0.5, 'top': 0.88}
+        # self.card.size = (500, 500)
         
-        self.layout.add_widget(self.website)
-        self.layout.add_widget(self.website_input)
+        
+        self.card.update_title = Label(text='Update Password', halign='center', color=(0, 0, 0, 1), bold=True, font_size=sp(20))        
+        self.card.add_widget(self.card.update_title)
 
-        self.layout.add_widget(self.year)
-        self.layout.add_widget(self.year_input)
+        # Label and Input for password length
+        email = Label(text='Email Adress:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        email.bind(size=email.setter('text_size'))
+        self.card.add_widget(email)
+        self.email_input = TextInput(multiline=False, hint_text='Enter email address',
+                                                font_size=sp(14), height=dp(50))
+        self.card.add_widget(self.email_input)
 
-        self.layout.add_widget(self.password)
-        self.layout.add_widget(self.password_input)
+        # Label and Input for username
+        user_label = Label(text='Username:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        user_label.bind(size=user_label.setter('text_size'))
+        self.card.add_widget(user_label)
+        self.username_input = TextInput(multiline=False, hint_text='Enter Username:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.username_input)
+
+        # Label and Input for website
+        website_label = Label(text='Website:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        website_label.bind(size=website_label.setter('text_size'))
+        self.card.add_widget(website_label)
+        self.website_input = TextInput(multiline=False, hint_text='Enter website:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.website_input)
+
+        # Label and Input for Year Created
+        year_label = Label(text='Year:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        year_label.bind(size=year_label.setter('text_size'))
+        self.card.add_widget(year_label)
+        self.year_input = IntegerInput(multiline=False, hint_text='Enter Year:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.year_input)
+
+        # Label and Input for password
+        password_label = Label(text='Password:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16))
+        password_label.bind(size=password_label.setter('text_size'))
+        self.card.add_widget(password_label)
+        self.password_input = IntegerInput(multiline=False, hint_text='Enter Password:', font_size=sp(14), height=dp(40))
+        self.card.add_widget(self.password_input)
+
+
+        # self.password = Label(text='Password:', halign='left', color=(0, 0, 0, 1), bold=True, font_size=sp(16), size_hint_y=None, height=dp(20))  # Adjust height as needed
+        # self.password.bind(size=self.password.setter('text_size'))
+        # self.password_input = TextInput(hint_text='Password', multiline=False, size_hint_y=None, height=dp(40))
+        # self.card.add_widget(self.password)
+
         
         self.update_button = Button(text='Update Password', size_hint_y=None, height=dp(40), background_color=(0, 1, 0, 1))
-        self.update_button.bind(on_press=self.update_password)
+        self.update_button.bind(on_press=self.update_password_screen)
         self.back_button = Button(text='Back', size_hint_y=None, height=dp(40), background_color=(1, 0, 0, 1))
         self.back_button.bind(on_press=lambda x: setattr(self.manager, 'current', 'password_manager'))
 
@@ -171,9 +186,9 @@ class EditPasswordScreen(Screen):
         buttons_layout.add_widget(self.update_button)
         buttons_layout.add_widget(self.back_button)
 
-        self.layout.add_widget(buttons_layout)
+        self.card.add_widget(buttons_layout)
 
-        self.add_widget(self.layout)
+        self.add_widget(self.card)
 
     def populate_fields(self, id, email_add, username, website, year, password):
         self.id = id
@@ -183,18 +198,38 @@ class EditPasswordScreen(Screen):
         self.year_input.text = year
         self.password_input.text = password
 
-    def update_password(self, instance):
-        updated_data = {
-            'id': self.id,
-            'email_add': self.email_input.text,
-            'username': self.username_input.text,
-            'website': self.website_input.text,
-            'year': self.year_input.text,
-            'password': self.password_input.text
-        }
-        self.password_manager.update_password(updated_data)
-        self.manager.current = 'password_manager'
+    def update_password_screen(self, instance):
+        try:
+        
+            updated_data = {
+                'id': self.id,
+                'email_add': self.email_input.text,
+                'username': self.username_input.text,
+                'website': self.website_input.text,
+                'year': self.year_input.text,
+                'password': self.password_input.text
+            }
+            self.password_manager.update_password(updated_data)
 
+            popup = Popup(title='Success',
+                content=Label(text='Password updated successfully!',
+                                text_size=(dp(250), None),
+                                size_hint_y=None, height=dp(30)),
+                                size_hint=(None, None), 
+                                size=(dp(300), dp(105))
+                )
+            popup.open()
+            self.manager.current = 'password_manager'
+
+        except:
+            popup = Popup(title='Error',
+                        content=Label(text='Error updating password!',
+                                        text_size=(dp(250), None),
+                                        size_hint_y=None, height=dp(30)),
+                                        size_hint=(None, None), 
+                                        size=(dp(300), dp(105))
+                        )
+            popup.open()
 class OptionButton(IRightBodyTouch, MDIconButton):
     def __init__(self, list_item, password_manager, **kwargs):
         super().__init__(**kwargs)
@@ -212,11 +247,6 @@ class OptionButton(IRightBodyTouch, MDIconButton):
             caller=self,
             items=[
                 {
-                    "text": "Delete",
-                    "viewclass": "OneLineListItem",
-                    "on_release": self.show_delete_confirmation
-                },
-                {
                     "text": "Copy to Clipboard",
                     "viewclass": "OneLineListItem",
                     "on_release": self.copy_to_clipboard
@@ -225,6 +255,11 @@ class OptionButton(IRightBodyTouch, MDIconButton):
                     "text": "Edit",
                     "viewclass": "OneLineListItem",
                     "on_release": self.edit_password
+                },
+                {
+                    "text": "Delete",
+                    "viewclass": "OneLineListItem",
+                    "on_release": self.show_delete_confirmation
                 }
             ],
             width_mult=2,
@@ -286,7 +321,7 @@ class OptionButton(IRightBodyTouch, MDIconButton):
             title='Notification',
             content=Label(text=message, size_hint_y=None, height=dp(50)),
             size_hint=(None, None),
-            size=(dp(250), dp(150))
+            size=(dp(250), dp(105))
         )
         popup.open()
     
@@ -296,26 +331,6 @@ class OptionButton(IRightBodyTouch, MDIconButton):
         id = self.password_manager.id_map.get(self.list_item)
         if id is not None:
             self.password_manager.show_edit_screen(id)
-    
-    # def update_password(self, id, email_add, username, website, year, password):
-    #     # Encrypt the updated password before saving
-    #     encrypted_password = self.password_manager.encrypt_password(password)
-
-    #     # Establish a database connection
-    #     conn, cursor = setup_database_connection()
-
-    #     # Update the password entry with the new details
-    #     cursor.execute('''
-    #         UPDATE passwords
-    #         SET email_add=?, username=?, website=?, year=?, password=?
-    #         WHERE id=?
-    #     ''', (email_add, username, website, year, encrypted_password, id))
-
-    #     # Commit the changes and close the connection
-    #     conn.commit()
-    #     conn.close()
-
-        # Optionally, update the UI or notify the user that the update was successful
 
 # *********************************** PASSWORD GENERATOR WIDGET ***************************************
 
@@ -563,12 +578,13 @@ class PasswordManagerWidget(Screen):
             SET email_add=?, username=?, website=?, year=?, password=?
             WHERE id=?
         ''', (updated_data['email_add'], updated_data['username'], updated_data['website'], 
-              updated_data['year'], encrypted_password, updated_data['id']))
+            updated_data['year'], encrypted_password, updated_data['id']))
         
         conn.commit()
         conn.close()
-        
-        self.fetch_passwords()
+
+        self.fetch_passwords()           
+
 
     def on_enter(self):
         self.fetch_passwords()
@@ -667,7 +683,8 @@ class PasswordManagerWidget(Screen):
                 uri = shared_storage.copy_to_shared(temp_file_path, collection='DIRECTORY_DOCUMENTS')
                 
                 if uri:
-                    export_path = uri.toString()
+                    # export_path = uri.toString()
+                    export_path = temp_file_path
                 else:
                     raise Exception("Failed to copy file to shared storage")
             else:
