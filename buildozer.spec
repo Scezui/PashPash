@@ -37,14 +37,14 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.3.0, kivymd==1.2, sqlite3, pyjnius, androidstorage4kivy
+requirements = python3,kivy==2.3.0, kivymd==1.2, sqlite3, pyjnius==1.6.1, androidstorage4kivy==0.1.1, cryptography
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
 
 # (str) Presplash of the application
-#presplash.filename = %(source.dir)s/data/presplash.png
+presplash.filename = %(source.dir)s/assets/icon.jpg
 
 # (str) Icon of the application
 icon.filename = %(source.dir)s/assets/icon.jpg

@@ -622,17 +622,17 @@ class PasswordManagerWidget(Screen):
             self.long_press_event.cancel()
 
         self.long_press_event = Clock.schedule_once(lambda dt: self.select_item(instance, touch), 0.5)
-        touch.grab(self)  # Grab the touch event
+        touch.grab(self)
 
     def select_item(self, instance, touch):
         if instance not in self.selected_items:
             instance.bg_color = self.selected_color
             self.selected_items.append(instance)
         else:
-            instance.bg_color = (1, 1, 1, 1)  # Reset to default background color
+            instance.bg_color = (1, 1, 1, 1) 
             self.selected_items.remove(instance)
 
-        touch.ungrab(self)  # Release the touch event
+        touch.ungrab(self) 
     def toggle_password_visibility(self, instance):
         self.hidden_passwords = not self.hidden_passwords
         self.eye_button.icon = "eye-off" if self.hidden_passwords else "eye"
@@ -656,7 +656,6 @@ class PasswordManagerWidget(Screen):
         conn.commit()
         conn.close()
         
-        # Update the list view
         self.update_list_data()
 
     def export_to_csv(self, *args):
@@ -744,15 +743,12 @@ class PashPashApp(MDApp):
     def initialize_app(self):
         setup_database_connection()
 
-        # Password Generator Screen
         self.password_generator_screen = PasswordGeneratorWidget(name='password_generator')
         self.screen_manager.add_widget(self.password_generator_screen)
 
-        # Password Manager Screen
         self.password_manager_screen = PasswordManagerWidget(name='password_manager')
         self.screen_manager.add_widget(self.password_manager_screen)
 
-        # Edit Password Screen
         self.edit_password_screen = EditPasswordScreen(self.password_manager_screen, name='edit_password')
         self.screen_manager.add_widget(self.edit_password_screen)
 
@@ -819,6 +815,8 @@ class PashPashApp(MDApp):
                 # Refresh the Password Manager screen
                 self.password_manager_screen.fetch_passwords()
 
+        else:
+            instance.state = 'down'
 if __name__ == '__main__':
     try:
         PashPashApp().run()

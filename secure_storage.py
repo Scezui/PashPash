@@ -5,12 +5,9 @@ from kivy.utils import platform
 
 SECURE_STORAGE_KEY = 'encryption_key'
 
-
-# Function to get the path for secure storage on non-Android platforms
 def get_non_android_secure_storage_path():
     return os.path.expanduser('~/.secure_storage')
 
-# Function to get the encryption key for non-Android platforms
 def get_non_android_encryption_key():
     secure_storage_path = get_non_android_secure_storage_path()
     if not os.path.exists(secure_storage_path):
@@ -22,7 +19,6 @@ def get_non_android_encryption_key():
             key = f.read()
     return key
 
-# Function to determine the platform and get the appropriate cipher suite
 def get_cipher_suite():
     if platform == 'android':
         
@@ -42,12 +38,11 @@ def get_cipher_suite():
                     key = f.read()
             return key
 
-    else:  # For non-Android platforms
         def get_secure_storage_path():
             return get_non_android_secure_storage_path()
 
-        def get_encryption_key():
-            return get_non_android_encryption_key()
+    def get_encryption_key():
+        return get_non_android_encryption_key()
 
     key = get_encryption_key()
     return Fernet(key)
